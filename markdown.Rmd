@@ -1,0 +1,184 @@
+---
+title: "Twitter-analyysi"
+author: "Laura Salonen"
+date: "2/10/2021"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Twitteranalyysi
+
+Analysoidaan INVEST-projektin Twitter-dataa kahdella eri tavalla. Ensin analysoidaan INVESTin virallisen twitter-profiilin seinä (eli timelineä).
+Sitten analysoidaan INVESTin virallista häshtägiä eli #eriarvo.
+
+Ladataan ensin tarvittavat paketit
+
+```{r message=F}
+library("twitteR")
+library("ROAuth")
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+library("tidyverse")
+library("ggplot2")
+```
+
+## Autentikaatio
+```{r message=F, echo=F}
+source("~/R/keys.R")
+setup_twitter_oauth(a,b,c,d)
+```
+
+## Kerätään INVESTin twitter-profiilin twiitit.
+
+Tämä komento noutaa maksimissaan 3200 twiittiä, viimeisen viikon ajalta.
+
+```{r}
+tweets <- userTimeline("INVEST_flagship", n = 3200)
+```
+
+Saimme 52 twiittiä. Tallennetaan kerätyt twiitit dataframeksi.
+
+```{r message=F}
+tweets.df <- twListToDF(tweets)
+```
+
+## Tarkastellaan twiittejä
+
+```{r}
+head(tweets.df$text)
+```
+
+d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
+  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
+         coord_flip() + theme(axis.text=element_text(size=7))
+
+## Siivootaan tekstit
+
+Luodaan tekstistä ensin corpus
+
+```{r}
+myCorpus <- Corpus(VectorSource(tweets.df$text))
+```
+
+Tehdään funktio, jonka avulla poistetaan erilaisia symboleja tekstistä (muuttaa ne välilyönniksi)
+
+```{r warning=F}
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+# poistetaan kaikki tinyurl-osoitteet 
+myCorpus <- tm_map(myCorpus, toSpace, " ?(f|ht)tp(s?)://(.*)")
+# poistetaan kaikki profiili-tagit
+myCorpus <- tm_map(myCorpus, toSpace, "@[A-Za-z]+")
+# poistetaan kenoviivat
+myCorpus <- tm_map(myCorpus, toSpace, "/")
+myCorpus <- tm_map(myCorpus, toSpace, "\\|")
+```
+
+Jatketaan tekstimassan siistimistä
+
+```{r warning=F}
+# Kaikki kirjaimet pieniksi
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+# Poistetaan numerot
+myCorpus <- tm_map(myCorpus, removeNumbers)
+# Poistetaan pisteet
+myCorpus <- tm_map(myCorpus, removePunctuation)
+# Poistetaan ylimääräiset välilyönnit
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+# poistetaan itse määriteltyjä sanoja
+myCorpus <- tm_map(myCorpus, removeWords, c("the", "and", "you", "very", "are", "for"))
+```
+
+Tehdään tekstimassasta sanamatriisi, järjestetään yleisimmästä sanasta harvimpaan.
+Muutetaan data.frameksi
+
+```{r}
+dtm <- TermDocumentMatrix(myCorpus)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+```
+
+## Sanapilvi
+```{r warning=F, echi=F}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=150, random.order=FALSE, rot.per=0.15, 
+          colors=brewer.pal(8, "Dark2"))
+```
+## barplot yleisimmistä twiiteistä
+
+```{r}
+d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
+  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
+         coord_flip() + theme(axis.text=element_text(size=7))
+```
+
+## Kerätään hashtag-twiitit
+
+```{r}
+tweets <- searchTwitter("#eriarvoisuus",n=1000,lang="fi")
+```
+
+Pyysimme 1000 twiittiä, saimme vain 88.
+
+Tallennetaan data.frameksi
+
+```{r message=F}
+tweets.df <- twListToDF(tweets)
+```
+
+Siisistään teksti kuten yllä
+
+```{r}
+myCorpus <- Corpus(VectorSource(tweets.df$text))
+```
+
+Tehdään funktio, jonka avulla poistetaan erilaisia symboleja tekstistä (muuttaa ne välilyönniksi)
+
+```{r warning=F}
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+# poistetaan kaikki tinyurl-osoitteet 
+myCorpus <- tm_map(myCorpus, toSpace, " ?(f|ht)tp(s?)://(.*)")
+# poistetaan kaikki profiili-tagit
+myCorpus <- tm_map(myCorpus, toSpace, "@[A-Za-z]+")
+# poistetaan kenoviivat
+myCorpus <- tm_map(myCorpus, toSpace, "/")
+myCorpus <- tm_map(myCorpus, toSpace, "\\|")
+# Kaikki kirjaimet pieniksi
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+# Poistetaan numerot
+myCorpus <- tm_map(myCorpus, removeNumbers)
+# Poistetaan pisteet
+myCorpus <- tm_map(myCorpus, removePunctuation)
+# Poistetaan ylimääräiset välilyönnit
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+# poistetaan itse määriteltyjä sanoja
+myCorpus <- tm_map(myCorpus, removeWords, c("the", "and", "you", "very", "are", "for"))
+dtm <- TermDocumentMatrix(myCorpus)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+```
+
+## Sanapilvi
+```{r warning=F}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=150, random.order=FALSE, rot.per=0.15, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+## barplot yleisimmistä twiiteistä
+
+```{r}
+d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
+  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
+         coord_flip() + theme(axis.text=element_text(size=7))
+```
