@@ -1,10 +1,15 @@
 ---
 title: "Twitter-analyysi"
 author: "Laura Salonen"
-date: "2/10/2021"
+date: "Päivitetty: `r Sys.time()`"
 output:
-  md_document:
-    variant: markdown_github
+  html_document:
+    toc: true
+    number_sections: true
+    theme: united
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
 ---
 
 ```{r setup, include=FALSE}
@@ -54,18 +59,13 @@ tweets.df <- twListToDF(tweets)
 ```{r}
 head(tweets.df$text)
 ```
-
-d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
-  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
-         coord_flip() + theme(axis.text=element_text(size=7))
-
-## Siivootaan tekstit
-
 Luodaan tekstistä ensin corpus
 
 ```{r}
 myCorpus <- Corpus(VectorSource(tweets.df$text))
 ```
+
+## Siivootaan tekstimassaa
 
 Tehdään funktio, jonka avulla poistetaan erilaisia symboleja tekstistä (muuttaa ne välilyönniksi)
 
@@ -95,6 +95,7 @@ myCorpus <- tm_map(myCorpus, stripWhitespace)
 myCorpus <- tm_map(myCorpus, removeWords, c("the", "and", "you", "very", "are", "for"))
 ```
 
+
 Tehdään tekstimassasta sanamatriisi, järjestetään yleisimmästä sanasta harvimpaan.
 Muutetaan data.frameksi
 
@@ -105,24 +106,23 @@ v <- sort(rowSums(m),decreasing=TRUE)
 d <- data.frame(word = names(v),freq=v)
 ```
 
+```{r message=F}
+d %>% arrange(desc(freq)) %>% slice(1:20) %>% ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Sanat") + ylab("Määrä") +
+         coord_flip() + theme(axis.text=element_text(size=7)) + theme_light()
+ggsave("plot1.png")
+```
+
 ## Sanapilvi
-```{r warning=F, echi=F}
+```{r warning=F, echo=F}
 set.seed(1234)
 wordcloud(words = d$word, freq = d$freq, min.freq = 1,
           max.words=150, random.order=FALSE, rot.per=0.15, 
           colors=brewer.pal(8, "Dark2"))
 ```
-## barplot yleisimmistä twiiteistä
-
-```{r}
-d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
-  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
-         coord_flip() + theme(axis.text=element_text(size=7))
-```
 
 ## Kerätään hashtag-twiitit
 
-```{r}
+```{r warning=F}
 tweets <- searchTwitter("#eriarvoisuus",n=1000,lang="fi")
 ```
 
@@ -177,8 +177,9 @@ wordcloud(words = d$word, freq = d$freq, min.freq = 1,
 
 ## barplot yleisimmistä twiiteistä
 
-```{r}
+```{r message=F}
 d %>% arrange(desc(freq)) %>% slice(1:20) %>% 
-  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Words") + ylab("Count") +
-         coord_flip() + theme(axis.text=element_text(size=7))
+  ggplot(aes(x=reorder(word, freq), y=freq)) + geom_bar(stat="identity") + xlab("Sanat") + ylab("Määrä") +
+         coord_flip() + theme(axis.text=element_text(size=7)) + theme_light()
+ggsave("plot2.png")
 ```
